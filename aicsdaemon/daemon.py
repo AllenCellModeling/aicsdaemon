@@ -1,23 +1,28 @@
 #!/usr/bin/env python
 
+from abc import ABC, abstractmethod
 import atexit
 import os
 import sys
 import time
 from signal import SIGTERM
 
+from .types import Pathlike
 
-class Daemon:
+
+class Daemon(ABC):
     """
     A generic daemon class.
 
     Usage: subclass the Daemon class and override the run() method
     """
 
-    def __init__(self, pidfile, stdin=os.devnull, stdout=os.devnull, stderr=os.devnull):
+    def __init__(self, pidfile: Pathlike, stdin: Pathlike = None, stdout: Pathlike = None, stderr: Pathlike = None):
+        # STDIN, STDOUT, STDERR, will eventually need to be redirected to /dev/null, making that clear here
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
+        # file to hold the pid so the process can later be killed by pid
         self.pidfile = pidfile
 
     def daemonize(self):
@@ -50,20 +55,38 @@ class Daemon:
             sys.stderr.write("fork #2 failed: %d (%s)\n" % (err.errno, err.strerror))
             sys.exit(1)
 
+        print(f"pid is {str(os.getpid())}")
+
         # redirect standard file descriptors
         sys.stdout.flush()
         sys.stderr.flush()
-        si = open(self.stdin, 'r')
-        so = open(self.stdout, 'a+')
-        se = open(self.stderr, 'a+', 0)
-        os.dup2(si.fileno(), sys.stdin.fileno())
-        os.dup2(so.fileno(), sys.stdout.fileno())
-        os.dup2(se.fileno(), sys.stderr.fileno())
+        self.isolate_daemon()
 
         # write pidfile
         atexit.register(self.delpid)
         pid = str(os.getpid())
-        open(self.pidfile, 'w+').write("%s\n" % pid)
+
+        with open(self.pidfile, 'w+') as fp:
+            fp.write("%s\n" % pid)
+
+    def isolate_daemon(self):
+        self._isolate_stream(self.stdin, sys.stdin, mode='r')
+        self._isolate_stream(self.stdout, sys.stdout, mode='a+')
+        self._isolate_stream(self.stderr, sys.stderr, mode='a+')
+
+    @staticmethod
+    def _isolate_stream(fname, sys_stream, mode: str):
+        sobj = open(fname, mode=mode) if fname else os.devnull
+        if fname:
+            # replace sys_stream with the file stream
+            if mode == 'r':
+                sys_stream = sobj
+            else:
+                os.dup2(sobj.fileno(), sys_stream.fileno())
+        else:
+            sys_stream.close()
+
+        return sys_stream
 
     def delpid(self):
         os.remove(self.pidfile)
@@ -127,10 +150,11 @@ class Daemon:
         self.stop()
         self.start()
 
+    @abstractmethod
     def run(self):
         """
         You should override this method when you subclass Daemon. It will be called after the process has been
         daemonized by start() or restart().
         """
-
+        pass
 

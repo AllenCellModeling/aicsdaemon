@@ -13,4 +13,5 @@ def get_module_version():
     return __version__
 
 
-from .example import Example  # noqa: F401
+from .daemon import Daemon  # noqa: F401
+from .example_child import TestDaemon  # noqa: F401
