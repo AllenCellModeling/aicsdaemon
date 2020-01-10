@@ -24,12 +24,12 @@ class Daemon(ABC):
         self.stderr = stderr
         # file to hold the pid so the process can later be killed by pid
         self.pidfile = pidfile
+        open(stdin, 'w').close()  # create stdin or empty it, it will be opened for reading
 
     def daemonize(self):
         """
         do the UNIX double-fork magic, see Stevens' "Advanced
         Programming in the UNIX Environment" for details (ISBN 0201563177)
-        http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
         """
         try:
             pid = os.fork()
