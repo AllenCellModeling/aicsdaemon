@@ -24,7 +24,8 @@ class Daemon(ABC):
         self.stderr = stderr
         # file to hold the pid so the process can later be killed by pid
         self.pidfile = pidfile
-        open(stdin, 'w').close()  # create stdin or empty it, it will be opened for reading
+        if stdin:
+            open(stdin, 'w').close()  # create stdin or empty it, it will be opened for reading
 
     def daemonize(self):
         """
