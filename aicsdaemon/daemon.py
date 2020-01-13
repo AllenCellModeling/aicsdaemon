@@ -111,7 +111,8 @@ class Daemon(ABC):
 
         # Start the daemon
         self.daemonize()
-        self.run()
+        self.run()  # run should enter an unending loop
+        self.stop()  # if the loop exits for some reason clean up the pidfile
 
     def stop(self):
         """
