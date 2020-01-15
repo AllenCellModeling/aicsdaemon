@@ -17,11 +17,13 @@ class Daemon(ABC):
     Usage: subclass the Daemon class and override the run() method
     """
 
-    def __init__(self, pidfile: Pathlike, stdin: Pathlike = None, stdout: Pathlike = None, stderr: Pathlike = None):
+    def __init__(self, pidfile: Pathlike, stdin: Pathlike = None,
+                 stdout: Pathlike = None, stderr: Pathlike = None, foreground: bool = False):
         # STDIN, STDOUT, STDERR, will eventually need to be redirected to /dev/null, making that clear here
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
+        self.foreground = foreground
         # file to hold the pid so the process can later be killed by pid
         self.pidfile = pidfile
         if stdin:
@@ -32,29 +34,30 @@ class Daemon(ABC):
         do the UNIX double-fork magic, see Stevens' "Advanced
         Programming in the UNIX Environment" for details (ISBN 0201563177)
         """
-        try:
-            pid = os.fork()
-            if pid > 0:
-                # exit first parent
-                sys.exit(0)
-        except OSError as err:
-            sys.stderr.write("fork #1 failed: %d (%s)\n" % (err.errno, err.strerror))
-            sys.exit(1)
+        if not self.foreground:
+            try:
+                pid = os.fork()
+                if pid > 0:
+                    # exit first parent
+                    sys.exit(0)
+            except OSError as err:
+                sys.stderr.write("fork #1 failed: %d (%s)\n" % (err.errno, err.strerror))
+                sys.exit(1)
 
-        # decouple from parent environment
-        os.chdir("/")
-        os.setsid()
-        os.umask(0)
+            # decouple from parent environment
+            os.chdir("/")
+            os.setsid()
+            os.umask(0)
 
-        # do second fork
-        try:
-            pid = os.fork()
-            if pid > 0:
-                # exit from second parent
-                sys.exit(0)
-        except OSError as err:
-            sys.stderr.write("fork #2 failed: %d (%s)\n" % (err.errno, err.strerror))
-            sys.exit(1)
+            # do second fork
+            try:
+                pid = os.fork()
+                if pid > 0:
+                    # exit from second parent
+                    sys.exit(0)
+            except OSError as err:
+                sys.stderr.write("fork #2 failed: %d (%s)\n" % (err.errno, err.strerror))
+                sys.exit(1)
 
         print(f"pid is {str(os.getpid())}")
 
